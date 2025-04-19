@@ -42,7 +42,7 @@ async def handle_text(msg: Message, state: FSMContext):
     await state.update_data(text=msg.text)
     keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="🇷🇺 Русский"), KeyboardButton(text="🇬🇧 English")]], resize_keyboard=True)
     await msg.answer("🌐 Выберите язык озвучки:", reply_markup=keyboard)
-    await state.set_state(FinalGenerateState.select_language)
+    await state.set_state(FinalGenerateState.select_lang)
 
 
 @router.message(FinalGenerateState.select_language, F.text)
