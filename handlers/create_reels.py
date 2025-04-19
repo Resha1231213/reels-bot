@@ -45,7 +45,7 @@ async def handle_text(msg: Message, state: FSMContext):
     await state.set_state(FinalGenerateState.select_lang)
 
 
-@router.message(FinalGenerateState.select_language, F.text)
+@router.message(FinalGenerateState.select_lang, F.text)
 async def handle_language(msg: Message, state: FSMContext):
     lang = "ru" if "Рус" in msg.text else "en"
     await state.update_data(language=lang)
