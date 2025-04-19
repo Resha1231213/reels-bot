@@ -7,12 +7,14 @@ class GenerateState(StatesGroup):
     ready = State()
 
 class FinalGenerateState(StatesGroup):
-    enter_text = State()             # Ввод текста сценария
-    select_lang = State()            # Выбор языка
-    select_format = State()          # Выбор формата видео
-    select_subtitles = State()       # Выбор, нужны ли субтитры
-    confirm_generation = State()     # Подтверждение генерации
-    waiting_for_avatar = State()     # Загрузка аватара (фото)
-    waiting_for_voice = State()      # Загрузка или запись голоса
-    waiting_for_script = State()     # Ввод текста сценария
-    waiting_for_confirmation = State()  # Подтверждение всех данных
+    enter_text = State()             # 🟡 ВОТ ЭТО ОБЯЗАТЕЛЬНО
+    select_lang = State()
+    select_format = State()
+    select_subtitles = State()
+    confirm_generation = State()
+    waiting_for_avatar = State()
+    waiting_for_voice = State()
+    waiting_for_script = State()
+    waiting_for_format = State()
+    waiting_for_subtitles = State()
+    waiting_for_confirmation = State()
