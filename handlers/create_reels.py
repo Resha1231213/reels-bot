@@ -1,7 +1,7 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.fsm.context import FSMContext
-from states.final_generate_state import FinalGenerateState
+from states.FinalGenerateState import FinalGenerateState
 from utils.video_editor import generate_reels
 
 from pathlib import Path
