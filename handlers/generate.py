@@ -1,48 +1,50 @@
 import os
-from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
 from pathlib import Path
 from ai_services import generate_speech
 from heygen_video_generation import generate_heygen_video
+from utils.video_editor import combine_avatar_and_background
 
-def generate_reels(user_id, text, lang, format_type, with_subtitles):
-    user_folder = Path(f"media/{user_id}")
-    avatar_path = user_folder / "avatar.jpg"
-    audio_path = user_folder / "voice.mp3"
-    result_path = user_folder / "reels_result.mp4"
 
-    # Озвучка
-    generate_speech(text=text, voice_id=lang, output_path=audio_path)
+def generate_reels(user_id: int, text: str, lang: str, format_type: str, with_subtitles: bool = False) -> str:
+    media_dir = Path(f"media/{user_id}")
+    avatar_path = media_dir / "avatar.jpg"
+    voice_path = media_dir / "voice.mp3"
+    output_path = media_dir / "result.mp4"
 
-    # Генерация видео через Heygen
-    generate_heygen_video(
+    # Озвучка через OpenAI
+    print("[GEN] Генерация голоса...")
+    generate_speech(text=text, output_path=voice_path, language=lang)
+
+    # Генерация видео с Heygen
+    print("[GEN] Генерация видео Heygen...")
+    avatar_video_path = generate_heygen_video(
         photo_path=str(avatar_path),
-        audio_path=str(audio_path),
-        output_path=str(result_path)
+        voice_path=str(voice_path),
+        user_id=user_id
     )
 
-    # Добавляем субтитры, если нужно
-    if with_subtitles:
-        result_path = add_subtitles_to_video(
-            video_path=result_path,
-            subtitles_text=text,
-            output_path=user_folder / "reels_with_subs.mp4"
-        )
+    if not avatar_video_path:
+        print("[GEN] Ошибка генерации Heygen видео")
+        return ""
 
-    return str(result_path)
+    # Если формат - просто аватар, возвращаем как есть
+    if format_type == "full":
+        os.rename(avatar_video_path, output_path)
+        return str(output_path)
 
-def add_subtitles_to_video(video_path, subtitles_text, output_path):
-    video = VideoFileClip(str(video_path))
+    # Если формат 50/50 или круглый — нужен монтаж
+    background_path = media_dir / "background.mp4"  # если понадобится вставка
+    subtitles_path = media_dir / "subs.srt" if with_subtitles else None
 
-    subtitle = TextClip(
-        txt=subtitles_text,
-        fontsize=48,
-        color='white',
-        font="Arial-Bold",
-        method='caption',
-        size=(video.w * 0.9, None)
-    ).set_duration(video.duration).set_position(('center', 'bottom'))
+    final_video_path = combine_avatar_and_background(
+        avatar_video_path=avatar_video_path,
+        background_video_path=background_path if background_path.exists() else None,
+        format_type=format_type,
+        subtitles_path=subtitles_path
+    )
 
-    final = CompositeVideoClip([video, subtitle])
-    final.write_videofile(str(output_path), codec="libx264", audio_codec="aac")
+    if final_video_path:
+        os.rename(final_video_path, output_path)
+        return str(output_path)
 
-    return output_path
+    return ""
