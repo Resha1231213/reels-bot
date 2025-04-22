@@ -1,61 +1,41 @@
-import requests
-from bs4 import BeautifulSoup
-import re
+from aiogram.fsm.state import State, StatesGroup
 
-def parse_reel_metadata(url: str) -> dict:
-    if 'tiktok.com' in url:
-        return parse_tiktok(url)
-    elif 'instagram.com' in url:
-        return parse_instagram(url)
-    elif 'youtube.com' in url or 'youtu.be' in url:
-        return parse_youtube(url)
-    else:
-        return {"error": "Unsupported platform"}
+class FinalGenerateState(StatesGroup):
+    waiting_for_avatar = State()
+    waiting_for_voice = State()
+    enter_script = State()
+    parsed_script = State()
+    select_language = State()
+    select_format = State()
+    with_subtitles = State()
 
-def parse_tiktok(url: str) -> dict:
-    try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-        }
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        title = soup.find('title').text
-        return {
-            "platform": "TikTok",
-            "title": title,
-            "url": url
-        }
-    except Exception as e:
-        return {"error": str(e)}
 
-def parse_instagram(url: str) -> dict:
-    try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-        }
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        title = soup.find('title').text
-        return {
-            "platform": "Instagram",
-            "title": title,
-            "url": url
-        }
-    except Exception as e:
-        return {"error": str(e)}
+class AvatarGenerationState(StatesGroup):
+    uploading_photo = State()
+    uploading_video = State()
+    confirming_avatar = State()
 
-def parse_youtube(url: str) -> dict:
-    try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-        }
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        title = soup.find('title').text
-        return {
-            "platform": "YouTube",
-            "title": title,
-            "url": url
-        }
-    except Exception as e:
-        return {"error": str(e)}
+
+class VoiceUploadState(StatesGroup):
+    recording_voice = State()
+    uploading_voice = State()
+    confirming_voice = State()
+
+
+class ScriptCreationState(StatesGroup):
+    entering_text_or_link = State()
+    confirming_generated_script = State()
+
+
+class ReelsGenerationState(StatesGroup):
+    selecting_avatar = State()
+    selecting_voice = State()
+    choosing_format = State()
+    choosing_subtitles = State()
+    confirming_generation = State()
+
+
+class PackageState(StatesGroup):
+    selecting_package = State()
+    confirming_payment = State()
+    activating_package = State()
