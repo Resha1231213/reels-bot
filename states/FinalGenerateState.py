@@ -3,7 +3,7 @@ from aiogram.fsm.state import StatesGroup, State
 class FinalGenerateState(StatesGroup):
     waiting_for_avatar = State()
     waiting_for_voice = State()
-    enter_script = State()  # ← ВОТ ЭТОГО НЕ ХВАТАЕТ
+    enter_script = State() 
     enter_link = State()
     competitor_ready = State()
     select_language = State()
