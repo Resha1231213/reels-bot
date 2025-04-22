@@ -85,7 +85,7 @@ async def handle_format_choice(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(FinalGenerateState.with_subtitles, F.data.startswith("subtitles_"))
 async def handle_subtitles_choice(callback: CallbackQuery, state: FSMContext):
-    choice = callback.data.
+    choice = callback.data
 replace("subtitles_", "")
     if choice == "yes":
         await state.update_data(subtitles=True)
