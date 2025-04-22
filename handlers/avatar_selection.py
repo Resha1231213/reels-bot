@@ -1,7 +1,7 @@
 # handlers/avatar_selection.py
 
 from aiogram import Router, F
-from aiogram.types import Message, InputMediaPhoto, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, InputMediaPhoto, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from states import FinalGenerateState
 from pathlib import Path
@@ -28,17 +28,23 @@ async def handle_multiple_avatars(msg: Message, state: FSMContext):
 
     await msg.answer(f"✅ Аватар {len(existing)+1} загружен. Отправьте ещё или выберите один из них для генерации.")
 
-    existing.append(file_path)
+    # Обновим список аватаров
+    existing = list(media_dir.glob("*.jpg"))
     buttons = [[InlineKeyboardButton(text=f"Аватар {i+1}", callback_data=f"choose_avatar_{i}")]
-               for i in range(len(existing))]
+               ] for i in range(len(existing))]
     markup = InlineKeyboardMarkup(inline_keyboard=buttons)
     await msg.answer("Выберите аватар:", reply_markup=markup)
 
 @router.callback_query(F.data.startswith("choose_avatar_"))
-async def choose_avatar(callback, state: FSMContext):
+async def choose_avatar(callback: CallbackQuery, state: FSMContext):
     idx = int(callback.data.split("_")[-1])
     user_id = callback.from_user.id
     avatar_path = Path(f"media/{user_id}/avatars/avatar_{idx+1}.jpg")
+
+    if not avatar_path.exists():
+        await callback.message.answer("❌ Этот аватар не найден. Пожалуйста, загрузите заново.")
+        await callback.answer()
+        return
 
     await state.update_data(avatar=str(avatar_path))
     await callback.message.answer("✍️ Введите текст сценария:")
