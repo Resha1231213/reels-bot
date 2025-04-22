@@ -1,20 +1,24 @@
+# handlers/create_reels.py
+
 from aiogram import Router, F
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, FSInputFile
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
-from states import ReelsBotFlow
+from aiogram.types.input_file import FSInputFile
+from states import FinalGenerateState
 from handlers.generate import generate_reels
 from pathlib import Path
 import os
+from utils.parser import extract_info_from_url
 
 router = Router()
 
 @router.message(F.text == "/create")
 async def start_create(msg: Message, state: FSMContext):
     await msg.answer("📸 Пришлите до 5 фото или 1 видео для создания аватара")
-    await state.set_state(ReelsBotFlow.waiting_for_avatar)
+    await state.set_state(FinalGenerateState.waiting_for_avatar)
 
 
-@router.message(ReelsBotFlow.waiting_for_avatar, F.photo | F.video)
+@router.message(FinalGenerateState.waiting_for_avatar, F.photo | F.video)
 async def handle_avatar(msg: Message, state: FSMContext):
     user_id = msg.from_user.id
     media_dir = Path(f"media/{user_id}")
@@ -24,45 +28,37 @@ async def handle_avatar(msg: Message, state: FSMContext):
         for i, photo in enumerate(msg.photo[-5:], start=1):
             file_path = media_dir / f"avatar_{i}.jpg"
             await photo.download(destination=file_path)
-        await state.update_data(avatar_path=str(file_path))
-
     elif msg.video:
         video = msg.video
         raw_path = media_dir / "avatar_video.mp4"
         await video.download(destination=raw_path)
         os.system(f"ffmpeg -i {raw_path} -ss 00:00:01.000 -vframes 1 {media_dir}/avatar_1.jpg")
-        await state.update_data(avatar_path=str(media_dir / "avatar_1.jpg"))
 
-    await msg.answer("🎙 Пришлите голос для аватара (аудиофайл или голосовое)")
-    await state.set_state(ReelsBotFlow.waiting_for_voice)
+    await msg.answer("🎙 Пришлите голосовое сообщение или аудиофайл для озвучки аватара")
+    await state.set_state(FinalGenerateState.waiting_for_voice)
 
 
-@router.message(ReelsBotFlow.waiting_for_voice, F.voice | F.audio)
+@router.message(FinalGenerateState.waiting_for_voice, F.voice | F.audio)
 async def handle_voice(msg: Message, state: FSMContext):
     user_id = msg.from_user.id
-    media_dir = Path(f"media/{user_id}")
-    voice_path = media_dir / "voice.ogg"
+    voice_path = Path(f"media/{user_id}/voice.ogg")
 
-    voice = msg.voice or msg.audio
-    await voice.download(destination=voice_path)
-    await state.update_data(voice_path=str(voice_path))
+    voice_file = msg.voice or msg.audio
+    await voice_file.download(destination=voice_path)
 
-    await msg.answer("📝 Введите сценарий или пришлите ссылку на видео (Instagram, TikTok, YouTube)")
-    await state.set_state(ReelsBotFlow.waiting_for_script)
+    await msg.answer("✍️ Введите текст или пришлите ссылку на видео, по которому нужно сделать сценарий")
+    await state.set_state(FinalGenerateState.enter_text)
 
 
-@router.message(ReelsBotFlow.waiting_for_script, F.text)
-async def handle_script(msg: Message, state: FSMContext):
-    await state.update_data(script_input=msg.text)
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="🇷🇺 Русский"), KeyboardButton(text="🇬🇧 English")]],
-        resize_keyboard=True
-    )
+@router.message(FinalGenerateState.enter_text, F.text)
+async def handle_text(msg: Message, state: FSMContext):
+    await state.update_data(text=msg.text)
+    keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="🇷🇺 Русский"), KeyboardButton(text="🇬🇧 English")]], resize_keyboard=True)
     await msg.answer("🌐 Выберите язык озвучки:", reply_markup=keyboard)
-    await state.set_state(ReelsBotFlow.waiting_for_language)
+    await state.set_state(FinalGenerateState.select_language)
 
 
-@router.message(ReelsBotFlow.waiting_for_language, F.text)
+@router.message(FinalGenerateState.select_language, F.text)
 async def handle_language(msg: Message, state: FSMContext):
     lang = "ru" if "Рус" in msg.text else "en"
     await state.update_data(language=lang)
@@ -72,22 +68,22 @@ async def handle_language(msg: Message, state: FSMContext):
         [KeyboardButton(text="⚪ Круглый аватар")]
     ], resize_keyboard=True)
     await msg.answer("🖼 Выберите формат Reels:", reply_markup=keyboard)
-    await state.set_state(ReelsBotFlow.waiting_for_format)
+    await state.set_state(FinalGenerateState.select_format)
 
 
-@router.message(ReelsBotFlow.waiting_for_format, F.text)
+@router.message(FinalGenerateState.select_format, F.text)
 async def handle_format(msg: Message, state: FSMContext):
     fmt = "full" if "Full" in msg.text else "half" if "50" in msg.text else "circle"
-    await state.update_data(format_type=fmt)
+    await state.update_data(format=fmt)
 
     keyboard = ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text="✅ С субтитрами"), KeyboardButton(text="❌ Без субтитров")]
     ], resize_keyboard=True)
-    await msg.answer("💬 Добавить субтитры?", reply_markup=keyboard)
-    await state.set_state(ReelsBotFlow.waiting_for_subtitles)
+    await msg.answer("💬 Нужны ли субтитры?", reply_markup=keyboard)
+    await state.set_state(FinalGenerateState.with_subtitles)
 
 
-@router.message(ReelsBotFlow.waiting_for_subtitles, F.text)
+@router.message(FinalGenerateState.with_subtitles, F.text)
 async def handle_subtitles(msg: Message, state: FSMContext):
     with_subs = "✅" in msg.text
     data = await state.get_data()
@@ -95,17 +91,35 @@ async def handle_subtitles(msg: Message, state: FSMContext):
 
     result = generate_reels(
         user_id=user_id,
-        avatar_path=data["avatar_path"],
-        voice_path=data["voice_path"],
-        script_input=data["script_input"],
-        lang=data["language"],
-        format_type=data["format_type"],
+        text=data.get("text"),
+        lang=data.get("language"),
+        format_type=data.get("format"),
         with_subtitles=with_subs
     )
 
     if result:
         await msg.answer_video(FSInputFile(result), caption="🎬 Ваш Reels готов!")
     else:
-        await msg.answer("❌ Ошибка генерации Reels")
+        await msg.answer("❌ Ошибка генерации видео")
 
     await state.clear()
+
+
+@router.message(F.text == "🔍 Найти рилс конкурента")
+async def ask_competitor_link(msg: Message, state: FSMContext):
+    await msg.answer("🔗 Пришли ссылку на рилс конкурента (TikTok, Instagram или YouTube)")
+    await state.set_state(FinalGenerateState.waiting_for_competitor_link)
+
+
+@router.message(FinalGenerateState.waiting_for_competitor_link, F.text)
+async def parse_competitor_reel(msg: Message, state: FSMContext):
+    url = msg.text.strip()
+    title, description = extract_info_from_url(url)
+
+    if not title and not description:
+        await msg.answer("❌ Не удалось извлечь информацию. Попробуй другую ссылку.")
+        return
+
+    await msg.answer(f"✅ Найдено:\n<b>{title}</b>\n\n{description}")
+    await state.update_data(comp_title=title, comp_desc=description)
+    await state.set_state(FinalGenerateState.select_format)
