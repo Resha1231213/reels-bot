@@ -1,53 +1,51 @@
-from pathlib import Path
+# handlers/generate.py
+
 import os
-import uuid
-from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
+from uuid import uuid4
+from pathlib import Path
+
 from ai_services import generate_speech
 from heygen_video_generation import generate_heygen_video
+from utils.video_editor import add_subtitles_to_video, apply_format_overlay
 
 
-def generate_reels(user_id: int, text: str, lang: str, format_type: str, with_subtitles: bool) -> str:
-    base_dir = Path("media") / str(user_id)
-    avatar_path = base_dir / "avatar.jpg"
-    voice_path = base_dir / "voice.mp3"
-    output_path = base_dir / f"reel_{uuid.uuid4().hex}.mp4"
+def generate_reels(user_id, text, lang, format_type, with_subtitles):
+    media_dir = Path(f"media/{user_id}")
+    media_dir.mkdir(parents=True, exist_ok=True)
 
-    success = generate_speech(text, lang, voice_path)
-    if not success:
-        print("[ERROR] Ошибка при генерации озвучки")
-        return ""
+    avatar_path = media_dir / "avatar.jpg"
+    voice_path = media_dir / "voice.mp3"
+    raw_video_path = media_dir / f"raw_{uuid4().hex}.mp4"
+    final_video_path = media_dir / f"reels_{uuid4().hex}.mp4"
 
-    heygen_video_path = generate_heygen_video(str(avatar_path), str(voice_path), str(output_path))
-    if not heygen_video_path:
-        print("[ERROR] Ошибка при генерации видео с Heygen")
-        return ""
+    # Шаг 1: Генерация озвучки
+    if not voice_path.exists():
+        print("[AI] Генерация голоса...")
+        success = generate_speech(text=text, language=lang, output_path=voice_path)
+        if not success:
+            print("[ERROR] Голос не сгенерирован")
+            return None
 
-    final_path = base_dir / f"final_{uuid.uuid4().hex}.mp4"
+    # Шаг 2: Генерация talking-аватара через Heygen
+    print("[Heygen] Генерация talking-head видео...")
+    result_path = generate_heygen_video(
+        photo_path=avatar_path,
+        audio_path=voice_path,
+        output_path=raw_video_path
+    )
+    if not result_path or not os.path.exists(result_path):
+        print("[ERROR] Видео не сгенерировано через Heygen")
+        return None
 
-    try:
-        clip = VideoFileClip(str(heygen_video_path))
+    # Шаг 3: Добавление субтитров (если выбрано)
+    if with_subtitles:
+        print("[Subs] Добавление субтитров...")
+        subtitled_path = media_dir / f"subtitled_{uuid4().hex}.mp4"
+        result_path = add_subtitles_to_video(result_path, text, subtitled_path)
 
-        if format_type == "half":
-            screen_width = 1080
-            screen_height = 1920
-            bg_clip = clip.resize(height=960)
-            subtitle_area = TextClip(text, fontsize=40, color='white', bg_color='black', size=(1080, 960))
-            subtitle_area = subtitle_area.set_duration(clip.duration).set_position(("center", "bottom"))
-            final = CompositeVideoClip([bg_clip.set_position(("center", "top")), subtitle_area], size=(screen_width, screen_height))
-        elif format_type == "circle":
-            clip = clip.resize(height=720)
-            final = CompositeVideoClip([clip.set_position("center")], size=(1080, 1920))
-        else:
-            final = clip
+    # Шаг 4: Монтаж по формату (full, half, circle)
+    print(f"[Format] Применение формата: {format_type}")
+    formatted_path = apply_format_overlay(result_path, format_type, final_video_path)
 
-        if with_subtitles:
-            subtitle = TextClip(text, fontsize=50, color='white', method='caption', size=final.size)
-            subtitle = subtitle.set_duration(final.duration).set_position(("center", "bottom"))
-            final = CompositeVideoClip([final, subtitle])
-
-        final.write_videofile(str(final_path), codec="libx264", audio_codec="aac")
-        return str(final_path)
-
-    except Exception as e:
-        print(f"[ERROR] Ошибка во время финального рендера: {e}")
-        return ""
+    print(f"[DONE] Финальное видео сохранено в: {formatted_path}")
+    return formatted_path
