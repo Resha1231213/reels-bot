@@ -1,56 +1,48 @@
-# handlers/generate.py
-
 import os
-from heygen_video_generation import generate_heygen_video
-from ai_services import generate_speech
-import subprocess
 from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
 from pathlib import Path
+from ai_services import generate_speech
+from heygen_video_generation import generate_heygen_video
 
+def generate_reels(user_id, text, lang, format_type, with_subtitles):
+    user_folder = Path(f"media/{user_id}")
+    avatar_path = user_folder / "avatar.jpg"
+    audio_path = user_folder / "voice.mp3"
+    result_path = user_folder / "reels_result.mp4"
 
-def generate_reels(user_id: int, text: str, lang: str, format_type: str, with_subtitles: bool) -> str:
-    media_dir = Path(f"media/{user_id}")
-    media_dir.mkdir(parents=True, exist_ok=True)
-
-    photo_path = media_dir / "avatar.jpg"
-    output_path = media_dir / "final_video.mp4"
-    temp_video_path = media_dir / "heygen_raw.mp4"
-
-    print(f"[generate_reels] Пользователь: {user_id}")
-    print(f"[generate_reels] Текст: {text}, Язык: {lang}, Формат: {format_type}, Субтитры: {with_subtitles}")
+    # Озвучка
+    generate_speech(text=text, voice_id=lang, output_path=audio_path)
 
     # Генерация видео через Heygen
-    generated_video = generate_heygen_video(
-        photo_path=str(photo_path),
-        script_text=text,
-        output_path=str(temp_video_path),
-        language=lang,
-        voice_id="en_us_matthew" if lang == "en" else "ru_ekaterina"
+    generate_heygen_video(
+        photo_path=str(avatar_path),
+        audio_path=str(audio_path),
+        output_path=str(result_path)
     )
 
-    if not generated_video or not Path(generated_video).exists():
-        print("[generate_reels] Видео не сгенерировано!")
-        return ""
-
-    # Вставка субтитров (если нужно)
+    # Добавляем субтитры, если нужно
     if with_subtitles:
-        final_video = add_subtitles(temp_video_path, text, output_path)
-    else:
-        os.rename(temp_video_path, output_path)
-        final_video = output_path
+        result_path = add_subtitles_to_video(
+            video_path=result_path,
+            subtitles_text=text,
+            output_path=user_folder / "reels_with_subs.mp4"
+        )
 
-    return str(final_video)
+    return str(result_path)
 
+def add_subtitles_to_video(video_path, subtitles_text, output_path):
+    video = VideoFileClip(str(video_path))
 
-def add_subtitles(video_path: str, text: str, output_path: str) -> str:
-    print(f"[subtitles] Добавление субтитров...")
-    video = VideoFileClip(video_path)
-
-    subtitle = TextClip(text, fontsize=40, color='white', bg_color='black', size=video.size, method='caption')
-    subtitle = subtitle.set_position(('center', 'bottom')).set_duration(video.duration)
+    subtitle = TextClip(
+        txt=subtitles_text,
+        fontsize=48,
+        color='white',
+        font="Arial-Bold",
+        method='caption',
+        size=(video.w * 0.9, None)
+    ).set_duration(video.duration).set_position(('center', 'bottom'))
 
     final = CompositeVideoClip([video, subtitle])
-    final.write_videofile(output_path, codec='libx264', audio_codec='aac')
+    final.write_videofile(str(output_path), codec="libx264", audio_codec="aac")
 
-    print(f"[subtitles] Субтитры добавлены в {output_path}")
     return output_path
