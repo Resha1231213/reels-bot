@@ -1,52 +1,50 @@
-from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip, concatenate_videoclips
-from pathlib import Path
 import os
+from pathlib import Path
+from ai_services import generate_speech
+from heygen_video_generation import generate_heygen_video
+from utils.video_editor import combine_avatar_and_background
 
-def assemble_reels_video(avatar_path: str, background_path: str = None, with_subs: bool = False,
-                          subs_text: str = "", format_type: str = "full", output_path: str = "output/final_reel.mp4") -> str:
-    """
-    Собирает итоговое Reels-видео из аватара, обзора и субтитров.
 
-    :param avatar_path: путь к видео с аватаром (Heygen)
-    :param background_path: путь к видео-обзору (если формат 50/50 или круглый)
-    :param with_subs: нужны ли субтитры
-    :param subs_text: текст субтитров (если нужны)
-    :param format_type: "full", "half", "circle"
-    :param output_path: путь для сохранения
-    :return: путь к собранному видео
-    """
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+def generate_reels(user_id: int, text: str, lang: str, format_type: str, with_subtitles: bool = False) -> str:
+    media_dir = Path(f"media/{user_id}")
+    avatar_path = media_dir / "avatar.jpg"
+    voice_path = media_dir / "voice.mp3"
+    output_path = media_dir / "result.mp4"
 
-    avatar = VideoFileClip(avatar_path).resize(height=1080)
-    clips = []
+    # Озвучка через OpenAI
+    print("[GEN] Генерация голоса...")
+    generate_speech(text=text, output_path=voice_path, language=lang)
 
+    # Генерация видео с Heygen
+    print("[GEN] Генерация видео Heygen...")
+    avatar_video_path = generate_heygen_video(
+        photo_path=str(avatar_path),
+        voice_path=str(voice_path),
+        user_id=user_id
+    )
+
+    if not avatar_video_path:
+        print("[GEN] Ошибка генерации Heygen видео")
+        return ""
+
+    # Если формат - просто аватар, возвращаем как есть
     if format_type == "full":
-        clips.append(avatar)
+        os.rename(avatar_video_path, output_path)
+        return str(output_path)
 
-    elif format_type == "half" and background_path:
-        background = VideoFileClip(background_path).resize(height=1080)
-        avatar = avatar.resize(width=background.w // 2)
-        background = background.resize(width=background.w // 2)
-        final = CompositeVideoClip([
-            background.set_position((0, 0)),
-            avatar.set_position((background.w, 0))
-        ], size=(background.w * 2, 1080))
-        clips.append(final.set_duration(min(avatar.duration, background.duration)))
+    # Если формат 50/50 или круглый — нужен монтаж
+    background_path = media_dir / "background.mp4"  # если понадобится вставка
+    subtitles_path = media_dir / "subs.srt" if with_subtitles else None
 
-    elif format_type == "circle" and background_path:
-        background = VideoFileClip(background_path).resize(height=1080)
-        mask = avatar.to_mask().to_RGB().resize(height=400).margin(20, color=(0, 0, 0))
-        avatar = avatar.set_mask(mask).resize(height=400)
-        final = CompositeVideoClip([
-            background,
-            avatar.set_position((50, 50))
-        ], size=(background.w, background.h))
-        clips.append(final.set_duration(min(avatar.duration, background.duration)))
+    final_video_path = combine_avatar_and_background(
+        avatar_video_path=avatar_video_path,
+        background_video_path=background_path if background_path.exists() else None,
+        format_type=format_type,
+        subtitles_path=subtitles_path
+    )
 
-    if with_subs and subs_text:
-        subtitle = TextClip(subs_text, fontsize=50, color='white', bg_color='black', font="Arial-Bold")
-        subtitle = subtitle.set_duration(avatar.duration).set_position(("center", "bottom"))
-        clips[0] = CompositeVideoClip([clips[0], subtitle])
+    if final_video_path:
+        os.rename(final_video_path, output_path)
+        return str(output_path)
 
-    clips[0].write_videofile(output_path, fps=30, codec='libx264')
-    return output_path
+    return ""
