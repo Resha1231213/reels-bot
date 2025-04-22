@@ -1,50 +1,53 @@
-import os
 from pathlib import Path
+import os
+import uuid
+from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
 from ai_services import generate_speech
 from heygen_video_generation import generate_heygen_video
-from utils.video_editor import combine_avatar_and_background
 
 
-def generate_reels(user_id: int, text: str, lang: str, format_type: str, with_subtitles: bool = False) -> str:
-    media_dir = Path(f"media/{user_id}")
-    avatar_path = media_dir / "avatar.jpg"
-    voice_path = media_dir / "voice.mp3"
-    output_path = media_dir / "result.mp4"
+def generate_reels(user_id: int, text: str, lang: str, format_type: str, with_subtitles: bool) -> str:
+    base_dir = Path("media") / str(user_id)
+    avatar_path = base_dir / "avatar.jpg"
+    voice_path = base_dir / "voice.mp3"
+    output_path = base_dir / f"reel_{uuid.uuid4().hex}.mp4"
 
-    # Озвучка через OpenAI
-    print("[GEN] Генерация голоса...")
-    generate_speech(text=text, output_path=voice_path, language=lang)
-
-    # Генерация видео с Heygen
-    print("[GEN] Генерация видео Heygen...")
-    avatar_video_path = generate_heygen_video(
-        photo_path=str(avatar_path),
-        voice_path=str(voice_path),
-        user_id=user_id
-    )
-
-    if not avatar_video_path:
-        print("[GEN] Ошибка генерации Heygen видео")
+    success = generate_speech(text, lang, voice_path)
+    if not success:
+        print("[ERROR] Ошибка при генерации озвучки")
         return ""
 
-    # Если формат - просто аватар, возвращаем как есть
-    if format_type == "full":
-        os.rename(avatar_video_path, output_path)
-        return str(output_path)
+    heygen_video_path = generate_heygen_video(str(avatar_path), str(voice_path), str(output_path))
+    if not heygen_video_path:
+        print("[ERROR] Ошибка при генерации видео с Heygen")
+        return ""
 
-    # Если формат 50/50 или круглый — нужен монтаж
-    background_path = media_dir / "background.mp4"  # если понадобится вставка
-    subtitles_path = media_dir / "subs.srt" if with_subtitles else None
+    final_path = base_dir / f"final_{uuid.uuid4().hex}.mp4"
 
-    final_video_path = combine_avatar_and_background(
-        avatar_video_path=avatar_video_path,
-        background_video_path=background_path if background_path.exists() else None,
-        format_type=format_type,
-        subtitles_path=subtitles_path
-    )
+    try:
+        clip = VideoFileClip(str(heygen_video_path))
 
-    if final_video_path:
-        os.rename(final_video_path, output_path)
-        return str(output_path)
+        if format_type == "half":
+            screen_width = 1080
+            screen_height = 1920
+            bg_clip = clip.resize(height=960)
+            subtitle_area = TextClip(text, fontsize=40, color='white', bg_color='black', size=(1080, 960))
+            subtitle_area = subtitle_area.set_duration(clip.duration).set_position(("center", "bottom"))
+            final = CompositeVideoClip([bg_clip.set_position(("center", "top")), subtitle_area], size=(screen_width, screen_height))
+        elif format_type == "circle":
+            clip = clip.resize(height=720)
+            final = CompositeVideoClip([clip.set_position("center")], size=(1080, 1920))
+        else:
+            final = clip
 
-    return ""
+        if with_subtitles:
+            subtitle = TextClip(text, fontsize=50, color='white', method='caption', size=final.size)
+            subtitle = subtitle.set_duration(final.duration).set_position(("center", "bottom"))
+            final = CompositeVideoClip([final, subtitle])
+
+        final.write_videofile(str(final_path), codec="libx264", audio_codec="aac")
+        return str(final_path)
+
+    except Exception as e:
+        print(f"[ERROR] Ошибка во время финального рендера: {e}")
+        return ""
