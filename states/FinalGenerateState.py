@@ -1,4 +1,4 @@
-# states/final_generate_state.py
+# states/FinalGenerateState.py
 
 from aiogram.fsm.state import State, StatesGroup
 
