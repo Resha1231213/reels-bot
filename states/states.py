@@ -1,16 +1,61 @@
-from aiogram.fsm.state import State, StatesGroup
+import requests
+from bs4 import BeautifulSoup
+import re
 
-class FinalGenerateState(StatesGroup):
-    waiting_for_avatar = State()
-    waiting_for_voice = State()
-    enter_text_or_link = State()
-    parsing_from_link = State()
-    parsing_from_competitors = State()
-    select_language = State()
-    select_format = State()
-    with_subtitles = State()
-    font_upload = State()
-    generating_video = State()
+def parse_reel_metadata(url: str) -> dict:
+    if 'tiktok.com' in url:
+        return parse_tiktok(url)
+    elif 'instagram.com' in url:
+        return parse_instagram(url)
+    elif 'youtube.com' in url or 'youtu.be' in url:
+        return parse_youtube(url)
+    else:
+        return {"error": "Unsupported platform"}
 
-class AdminState(StatesGroup):
-    waiting_for_activation = State()
+def parse_tiktok(url: str) -> dict:
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        }
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        title = soup.find('title').text
+        return {
+            "platform": "TikTok",
+            "title": title,
+            "url": url
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+def parse_instagram(url: str) -> dict:
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        }
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        title = soup.find('title').text
+        return {
+            "platform": "Instagram",
+            "title": title,
+            "url": url
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+def parse_youtube(url: str) -> dict:
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        }
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        title = soup.find('title').text
+        return {
+            "platform": "YouTube",
+            "title": title,
+            "url": url
+        }
+    except Exception as e:
+        return {"error": str(e)}
