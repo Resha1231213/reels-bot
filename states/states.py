@@ -1,37 +1,36 @@
-# states/states.py
+@router.message(FinalGenerateState.upload_voice, F.voice | F.audio)
+async def handle_voice(msg: Message, state: FSMContext):
+    user_id = msg.from_user.id
+    media_dir = Path(f"media/{user_id}")
+    media_dir.mkdir(parents=True, exist_ok=True)
 
-from aiogram.fsm.state import StatesGroup, State
+    voice_path = media_dir / "voice.ogg"
 
-class ReelsBotFlow(StatesGroup):
-    # 1. Генерация аватара
-    waiting_for_avatar_photo_or_video = State()
-    confirm_avatar = State()
+    if msg.voice:
+        duration = msg.voice.duration
+        if duration > 20:
+            await msg.answer("❌ Голосовое сообщение слишком длинное. Пожалуйста, не более 20 секунд.")
+            return
+        await msg.voice.download(destination=voice_path)
 
-    # 2. Загрузка голоса
-    waiting_for_voice_file_or_record = State()
-    confirm_voice = State()
+    elif msg.audio:
+        if msg.audio.duration and msg.audio.duration > 20:
+            await msg.answer("❌ Аудиофайл слишком длинный. Пожалуйста, не более 20 секунд.")
+            return
+        await msg.audio.download(destination=voice_path)
 
-    # 3. Создание сценария
-    enter_script_text_or_video_link = State()
-    confirm_script = State()
+    else:
+        await msg.answer("❌ Отправьте именно голосовое сообщение или аудиофайл.")
+        return
 
-    # 4. Парсинг рилса конкурента
-    enter_competitor_link_or_choose_from_channel = State()
-    confirm_parsed_video = State()
+    await state.update_data(voice=str(voice_path))
 
-    # 5. Выбор языка
-    select_voice_language = State()
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🇷🇺 Русский"), KeyboardButton(text="🇬🇧 English")]
+        ],
+        resize_keyboard=True
+    )
 
-    # 6. Выбор формата Reels
-    select_video_format = State()  # full / 50/50 / circle
-
-    # 7. Субтитры
-    ask_add_subtitles = State()
-    wait_for_custom_font = State()
-
-    # 8. Оплата
-    wait_for_payment_method = State()  # USDT / Юр. лицо
-    confirm_payment = State()
-
-    # 9. Подтверждение финальной сборки
-    generating_final_video = State()
+    await msg.answer("🌐 Выберите язык озвучки:", reply_markup=keyboard)
+    await state.set_state(FinalGenerateState.select_language)
