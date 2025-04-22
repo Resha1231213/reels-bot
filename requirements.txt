@@ -1,9 +1,28 @@
-# requirements.txt
+# Telegram Bot Framework
 aiogram==3.4.1
 aiohttp==3.9.3
+
+# Env и конфигурации
 python-dotenv==1.0.1
+
+# OpenAI
 openai==1.14.3
+
+# Работа с HTTP
 requests==2.31.0
+
+# Работа с видео
 moviepy==1.0.3
+imageio==2.34.1
+imageio-ffmpeg==0.4.9
 ffmpeg-python==0.2.0
+
+# Работа с JSON, структурой данных
 pydantic==2.5.3
+
+# Поддержка асинхронной загрузки (если нужно для парсера)
+aiofiles==23.2.1
+
+# Для парсинга ссылок, если добавим TikTok/YouTube
+beautifulsoup4==4.12.3
+yt-dlp==2024.4.9
