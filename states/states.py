@@ -1,33 +1,41 @@
-from aiogram.fsm.state import StatesGroup, State
+from aiogram.fsm.state import State, StatesGroup
 
-class ReelsBotFlow(StatesGroup):
-    # Шаг 1: Загрузка аватара (фото или видео)
+class FinalGenerateState(StatesGroup):
     waiting_for_avatar = State()
-    
-    # Шаг 2: Загрузка или запись голоса
     waiting_for_voice = State()
+    enter_script = State()
+    parsed_script = State()
+    select_language = State()
+    select_format = State()
+    with_subtitles = State()
 
-    # Шаг 3: Ввод текста или отправка ссылки/файла со сценарием
-    waiting_for_script_input = State()
 
-    # Шаг 4: Парсинг конкурентного Reels
-    waiting_for_competitor_link = State()
+class AvatarGenerationState(StatesGroup):
+    uploading_photo = State()
+    uploading_video = State()
+    confirming_avatar = State()
 
-    # Шаг 5: Выбор формата Reels (fullscreen, 50/50, круг)
+
+class VoiceUploadState(StatesGroup):
+    recording_voice = State()
+    uploading_voice = State()
+    confirming_voice = State()
+
+
+class ScriptCreationState(StatesGroup):
+    entering_text_or_link = State()
+    confirming_generated_script = State()
+
+
+class ReelsGenerationState(StatesGroup):
+    selecting_avatar = State()
+    selecting_voice = State()
     choosing_format = State()
-
-    # Шаг 6: Субтитры — нужны/нет, свой шрифт
     choosing_subtitles = State()
-    uploading_font = State()
+    confirming_generation = State()
 
-    # Шаг 7: Подтверждение генерации Reels
-    confirm_generation = State()
 
-    # Шаг 8: Выбор пакета
-    choosing_package = State()
-    
-    # Шаг 9: Проверка активации пакета
-    package_check = State()
-
-    # Финальный шаг — ожидание генерации
-    generating_video = State()
+class PackageState(StatesGroup):
+    selecting_package = State()
+    confirming_payment = State()
+    activating_package = State()
