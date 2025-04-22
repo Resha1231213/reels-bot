@@ -1,13 +1,17 @@
-from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.state import StatesGroup, State
 
 class FinalGenerateState(StatesGroup):
-    waiting_for_avatar = State()
-    waiting_for_voice = State()
-    enter_script = State()
-    enter_link = State()
-    competitor_ready = State()
-    select_language = State()
-    select_format = State()
-    with_subtitles = State()
-    upload_font = State()
-    confirm_generate = State()
+    waiting_for_avatar = State()           # Загрузка аватаров (до 5 штук)
+    enter_text = State()                   # Ввод текста/сценария
+    upload_voice = State()                 # Загрузка или запись голоса
+    select_language = State()              # Выбор языка озвучки
+    select_format = State()                # Выбор формата Reels (full / 50/50 / круг)
+    with_subtitles = State()               # Выбор — с субтитрами или без
+    choose_font = State()                  # Загрузка шрифта
+    preview_reel = State()                 # Предпросмотр перед финалом
+    confirm_generation = State()           # Подтверждение генерации
+    parsing_competitor = State()           # Парсинг рилса конкурента
+    generate_from_url = State()            # Генерация сценария по ссылке
+    package_selection = State()            # Выбор пакета
+    wait_payment = State()                 # Ожидание оплаты
+    ready_to_generate = State()            # Всё готово, запуск генерации
