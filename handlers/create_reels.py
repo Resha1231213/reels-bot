@@ -65,19 +65,23 @@ async def handle_format(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.callback_query(FinalGenerateState.with_subtitles, F.data.startswith("subtitles_"))
-async def handle_subtitles(callback: CallbackQuery, state: FSMContext):
+async def handle_subtitles_choice(callback: CallbackQuery, state: FSMContext):
     choice = callback.data.replace("subtitles_", "")
+    
     if choice == "yes":
         await state.update_data(subtitles=True)
-        await callback.message.answer("Ок. Всё готово для генерации.")
+        await callback.message.answer("✅ Субтитры выбраны. Всё готово для генерации.")
         await state.set_state(FinalGenerateState.confirm_generate)
+
     elif choice == "no":
         await state.update_data(subtitles=False)
-        await callback.message.answer("Продолжаем. Всё готово для генерации.")
+        await callback.message.answer("👌 Без субтитров. Всё готово для генерации.")
         await state.set_state(FinalGenerateState.confirm_generate)
+
     elif choice == "font":
-        await callback.message.answer("Загрузите .ttf файл со шрифтом для субтитров:")
+        await callback.message.answer("Загрузите .ttf файл со шрифтом для субтитров.")
         await state.set_state(FinalGenerateState.upload_font)
+
     await callback.answer()
 
 @router.message(FinalGenerateState.upload_font, F.document)
