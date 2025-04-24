@@ -1,5 +1,3 @@
-# main.py
-
 import asyncio
 import logging
 import os
@@ -8,7 +6,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from dotenv import load_dotenv
 
-from handlers import create_reels, avatar_selection
+from handlers import create_reels, avatar_selection, start  # ДОБАВЬ start
 from states import FinalGenerateState
 
 # Загружаем переменные окружения из .env файла
@@ -29,6 +27,7 @@ bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher(storage=MemoryStorage())
 
 # Регистрируем роутеры обработчиков
+dp.include_router(start.router)              # <-- ЭТО ОБЯЗАТЕЛЬНО для кнопок!
 dp.include_router(create_reels.router)
 dp.include_router(avatar_selection.router)
 
@@ -38,5 +37,5 @@ async def main():
     await dp.start_polling(bot)
 
 # Запуск бота
-if __name__ == "__main__":
+if name == "__main__":
     asyncio.run(main())
